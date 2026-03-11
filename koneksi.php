@@ -1,7 +1,7 @@
 <?php
 /**
- * File koneksi database menggunakan PDO
- * Sesuaikan nilai host, dbname, username, dan password dengan setelan MySQL Anda.
+ * Koneksi database menggunakan PDO
+ * Sesuaikan nilai host, dbname, username, dan password dengan setelan MySQL/XAMPP Anda.
  */
 
 $host = 'localhost';
@@ -21,8 +21,7 @@ $options = [
 try {
     $pdo = new PDO($dsn, $user, $pass, $options);
 } catch (PDOException $e) {
-    // Matikan pada produksi, ini hanya untuk tugas/latihan
+    // Untuk produksi sebaiknya tidak menampilkan pesan asli
     die('Koneksi ke database gagal: ' . $e->getMessage());
 }
-
 
