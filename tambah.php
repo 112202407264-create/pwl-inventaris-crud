@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/koneksi.php';
+require_once 'koneksi.php';
 
 // Proses simpan data jika form disubmit
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -14,45 +14,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($kode_barang === '' || $nama_barang === '' || $jumlah === '') {
         $error = 'Kode barang, nama barang, dan jumlah wajib diisi.';
     } else {
-        $sql = "INSERT INTO barang (kode_barang, nama_barang, jumlah, satuan, lokasi, tanggal_masuk)
-                VALUES (:kode_barang, :nama_barang, :jumlah, :satuan, :lokasi, :tanggal_masuk)";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            ':kode_barang'   => $kode_barang,
-            ':nama_barang'   => $nama_barang,
-            ':jumlah'        => (int)$jumlah,
-            ':satuan'        => $satuan,
-            ':lokasi'        => $lokasi,
-            ':tanggal_masuk' => $tanggal_masuk ?: null,
-        ]);
+        $jumlah_int    = (int)$jumlah;
+        $tanggal_masuk = $tanggal_masuk ?: null;
 
-        header('Location: index.php?msg=Data barang berhasil ditambahkan');
-        exit;
+        try {
+            if ($tanggal_masuk) {
+                $stmt = $pdo->prepare(
+                    "INSERT INTO barang (kode_barang, nama_barang, jumlah, satuan, lokasi, tanggal_masuk)
+                     VALUES (:kode, :nama, :jumlah, :satuan, :lokasi, :tanggal)"
+                );
+                $stmt->execute([
+                    ':kode'    => trim($kode_barang),
+                    ':nama'    => trim($nama_barang),
+                    ':jumlah'  => $jumlah_int,
+                    ':satuan'  => trim($satuan),
+                    ':lokasi'  => trim($lokasi),
+                    ':tanggal' => $tanggal_masuk,
+                ]);
+            } else {
+                $stmt = $pdo->prepare(
+                    "INSERT INTO barang (kode_barang, nama_barang, jumlah, satuan, lokasi, tanggal_masuk)
+                     VALUES (:kode, :nama, :jumlah, :satuan, :lokasi, NULL)"
+                );
+                $stmt->execute([
+                    ':kode'   => trim($kode_barang),
+                    ':nama'   => trim($nama_barang),
+                    ':jumlah' => $jumlah_int,
+                    ':satuan' => trim($satuan),
+                    ':lokasi' => trim($lokasi),
+                ]);
+            }
+
+            header('Location: index.php?msg=Data barang berhasil ditambahkan');
+            exit;
+        } catch (PDOException $e) {
+            $error = 'Gagal menyimpan data: ' . $e->getMessage();
+        }
     }
 }
-?>
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tambah Barang - Inventaris</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
-          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-</head>
-<body class="bg-light">
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
-    <div class="container">
-        <a class="navbar-brand" href="index.php">Inventaris Barang</a>
-    </div>
-</nav>
 
+$baseUrl = '';
+$pageTitle = 'Tambah Sepatu';
+include 'include/header.php';
+?>
+
+<div class="app-shell">
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Tambah Barang</h5>
+                    <h5 class="mb-0">Tambah Sepatu</h5>
                 </div>
                 <div class="card-body">
                     <?php if (!empty($error)): ?>
@@ -61,17 +73,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <form method="post" action="">
                         <div class="mb-3">
-                            <label for="kode_barang" class="form-label">Kode Barang</label>
+                            <label for="kode_barang" class="form-label">Kode Sepatu</label>
                             <input type="text" class="form-control" id="kode_barang" name="kode_barang"
                                    required value="<?= htmlspecialchars($_POST['kode_barang'] ?? '') ?>">
                         </div>
                         <div class="mb-3">
-                            <label for="nama_barang" class="form-label">Nama Barang</label>
+                            <label for="nama_barang" class="form-label">Nama Sepatu</label>
                             <input type="text" class="form-control" id="nama_barang" name="nama_barang"
                                    required value="<?= htmlspecialchars($_POST['nama_barang'] ?? '') ?>">
                         </div>
                         <div class="mb-3">
-                            <label for="jumlah" class="form-label">Jumlah</label>
+                            <label for="jumlah" class="form-label">Jumlah/Stok</label>
                             <input type="number" class="form-control" id="jumlah" name="jumlah" min="0"
                                    required value="<?= htmlspecialchars($_POST['jumlah'] ?? '') ?>">
                         </div>
@@ -100,11 +112,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 </div>
+</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-        crossorigin="anonymous"></script>
-</body>
-</html>
-
-
+<?php include 'include/footer.php'; ?>
