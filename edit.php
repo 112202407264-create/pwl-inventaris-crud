@@ -1,93 +1,77 @@
 <?php
 require_once 'koneksi.php';
 
-// Ambil ID dari query string
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+// 1. Ambil kode barang secara aman dari parameter GET atau POST
+$kode_barang = $_GET['kode_barang'] ?? ($_POST['kode_barang'] ?? '');
 
-if ($id <= 0) {
+if ($kode_barang === '') {
     header('Location: index.php');
     exit;
 }
 
-// Ambil data barang berdasarkan ID
+$error = '';
+
+// 2. Ambil data lama dari database (dilakukan di awal agar form punya nilai default)
 try {
-    $stmt = $pdo->prepare("SELECT * FROM barang WHERE id = :id");
-    $stmt->execute([':id' => $id]);
-    $data = $stmt->fetch();
+    $stmt = $pdo->prepare("SELECT * FROM barang WHERE kode_barang = :kode");
+    $stmt->execute([':kode' => $kode_barang]);
+    $data = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $data = null;
 }
 
 if (!$data) {
-    header('Location: index.php?msg=Data tidak ditemukan');
+    header('Location: index.php?msg=' . urlencode('Data sepatu tidak ditemukan'));
     exit;
 }
 
-// Proses update data jika form disubmit
+// 3. Proses Update Data jika tombol ditekkan
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $kode_barang   = $_POST['kode_barang'] ?? '';
-    $nama_barang   = $_POST['nama_barang'] ?? '';
-    $jumlah        = $_POST['jumlah'] ?? '';
-    $satuan        = $_POST['satuan'] ?? '';
-    $lokasi        = $_POST['lokasi'] ?? '';
-    $tanggal_masuk = $_POST['tanggal_masuk'] ?? '';
+    $nama_barang   = trim($_POST['nama_barang'] ?? '');
+    $jumlah        = trim($_POST['jumlah'] ?? '');
+    $satuan        = trim($_POST['satuan'] ?? '');
+    $lokasi        = trim($_POST['lokasi'] ?? '');
+    $tanggal_masuk = trim($_POST['tanggal_masuk'] ?? '');
 
-    if ($kode_barang === '' || $nama_barang === '' || $jumlah === '') {
-        $error = 'Kode barang, nama barang, dan jumlah wajib diisi.';
+    // Validasi input kosong
+    if ($nama_barang === '' || $jumlah === '') {
+        $error = 'Nama barang dan jumlah wajib diisi.';
     } else {
-        $jumlah_int    = (int)$jumlah;
-        $tanggal_masuk = $tanggal_masuk ?: null;
-
         try {
-            if ($tanggal_masuk) {
-                $stmt = $pdo->prepare(
-                    "UPDATE barang SET 
-                        kode_barang = :kode,
+            // Gunakan tanggal lama jika input tanggal dikosongkan secara paksa
+            if ($tanggal_masuk === '') {
+                $tanggal_masuk = $data['tanggal_masuk']; 
+            }
+
+            // Eksekusi query Update
+            $sql = "UPDATE barang SET 
                         nama_barang = :nama,
                         jumlah      = :jumlah,
                         satuan      = :satuan,
                         lokasi      = :lokasi,
                         tanggal_masuk = :tanggal
-                     WHERE id = :id"
-                );
-                $stmt->execute([
-                    ':kode'    => trim($kode_barang),
-                    ':nama'    => trim($nama_barang),
-                    ':jumlah'  => $jumlah_int,
-                    ':satuan'  => trim($satuan),
-                    ':lokasi'  => trim($lokasi),
-                    ':tanggal' => $tanggal_masuk,
-                    ':id'      => $id,
-                ]);
-            } else {
-                $stmt = $pdo->prepare(
-                    "UPDATE barang SET 
-                        kode_barang = :kode,
-                        nama_barang = :nama,
-                        jumlah      = :jumlah,
-                        satuan      = :satuan,
-                        lokasi      = :lokasi,
-                        tanggal_masuk = NULL
-                     WHERE id = :id"
-                );
-                $stmt->execute([
-                    ':kode'   => trim($kode_barang),
-                    ':nama'   => trim($nama_barang),
-                    ':jumlah' => $jumlah_int,
-                    ':satuan' => trim($satuan),
-                    ':lokasi' => trim($lokasi),
-                    ':id'     => $id,
-                ]);
-            }
+                    WHERE kode_barang = :kode";
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':nama'    => $nama_barang,
+                ':jumlah'  => (int)$jumlah,
+                ':satuan'  => $satuan,
+                ':lokasi'  => $lokasi,
+                ':tanggal' => $tanggal_masuk,
+                ':kode'    => $kode_barang
+            ]);
 
-            header('Location: index.php?msg=Data barang berhasil diubah');
+            // Jika berhasil, alihkan ke halaman utama
+            header('Location: index.php?msg=' . urlencode('Data sepatu berhasil diperbarui!'));
             exit;
         } catch (PDOException $e) {
-            $error = 'Gagal mengubah data: ' . $e->getMessage();
+            $error = 'Gagal menyimpan ke database: ' . $e->getMessage();
         }
     }
 }
 
+// Pengaturan untuk template
 $baseUrl = '';
 $pageTitle = 'Edit Sepatu';
 include 'include/header.php';
@@ -99,47 +83,61 @@ include 'include/header.php';
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Edit Sepatu</h5>
+                    <h5 class="mb-0"><i class="fa-solid fa-pen-to-square me-2"></i> Edit Data Sepatu</h5>
                 </div>
                 <div class="card-body">
                     <?php if (!empty($error)): ?>
-                        <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+                        <div class="alert alert-danger">
+                            <i class="fa-solid fa-triangle-exclamation me-2"></i> <?= htmlspecialchars($error) ?>
+                        </div>
                     <?php endif; ?>
 
-                    <form method="post" action="">
+                    <form method="post" action="edit.php?kode_barang=<?= urlencode($kode_barang) ?>">
+                        
+                        <input type="hidden" name="kode_barang" value="<?= htmlspecialchars($kode_barang) ?>">
+
                         <div class="mb-3">
-                            <label for="kode_barang" class="form-label">Kode Sepatu</label>
-                            <input type="text" class="form-control" id="kode_barang" name="kode_barang"
-                                   required value="<?= htmlspecialchars($_POST['kode_barang'] ?? $data['kode_barang']) ?>">
+                            <label for="kode_barang_tampil" class="form-label">Kode Sepatu</label>
+                            <input type="text" class="form-control bg-light text-muted" id="kode_barang_tampil" 
+                                   disabled value="<?= htmlspecialchars($data['kode_barang']) ?>">
+                            <div class="form-text">Kode barang otomatis terkunci dan tidak dapat diubah.</div>
                         </div>
                         <div class="mb-3">
-                            <label for="nama_barang" class="form-label">Nama Sepatu</label>
+                            <label for="nama_barang" class="form-label">Nama Sepatu <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="nama_barang" name="nama_barang"
                                    required value="<?= htmlspecialchars($_POST['nama_barang'] ?? $data['nama_barang']) ?>">
                         </div>
-                        <div class="mb-3">
-                            <label for="jumlah" class="form-label">Jumlah/Stok</label>
-                            <input type="number" class="form-control" id="jumlah" name="jumlah" min="0"
-                                   required value="<?= htmlspecialchars($_POST['jumlah'] ?? $data['jumlah']) ?>">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="jumlah" class="form-label">Jumlah/Stok <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="jumlah" name="jumlah" min="0"
+                                       required value="<?= htmlspecialchars($_POST['jumlah'] ?? $data['jumlah']) ?>">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="satuan" class="form-label">Satuan</label>
+                                <input type="text" class="form-control" id="satuan" name="satuan"
+                                       value="<?= htmlspecialchars($_POST['satuan'] ?? $data['satuan']) ?>">
+                            </div>
                         </div>
                         <div class="mb-3">
-                            <label for="satuan" class="form-label">Satuan</label>
-                            <input type="text" class="form-control" id="satuan" name="satuan"
-                                   value="<?= htmlspecialchars($_POST['satuan'] ?? $data['satuan']) ?>">
-                        </div>
-                        <div class="mb-3">
-                            <label for="lokasi" class="form-label">Lokasi</label>
+                            <label for="lokasi" class="form-label">Lokasi Gudang</label>
                             <input type="text" class="form-control" id="lokasi" name="lokasi"
                                    value="<?= htmlspecialchars($_POST['lokasi'] ?? $data['lokasi']) ?>">
                         </div>
                         <div class="mb-3">
                             <label for="tanggal_masuk" class="form-label">Tanggal Masuk</label>
                             <input type="date" class="form-control" id="tanggal_masuk" name="tanggal_masuk"
-                                   value="<?= htmlspecialchars($_POST['tanggal_masuk'] ?? $data['tanggal_masuk']) ?>">
+                                   required value="<?= htmlspecialchars($_POST['tanggal_masuk'] ?? $data['tanggal_masuk']) ?>">
                         </div>
+                        
+                        <hr class="mt-4 mb-3">
                         <div class="d-flex justify-content-between">
-                            <a href="index.php" class="btn btn-secondary">Kembali</a>
-                            <button type="submit" class="btn btn-primary">Update</button>
+                            <a href="index.php" class="btn btn-secondary">
+                                <i class="fa-solid fa-arrow-left me-1"></i> Batal
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fa-solid fa-floppy-disk me-1"></i> Simpan Perubahan
+                            </button>
                         </div>
                     </form>
                 </div>
