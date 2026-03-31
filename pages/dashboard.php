@@ -1,4 +1,56 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (!isset($_SESSION['user_id'])) {
+    // Autologin dari cookie Remember Me
+    $rememberCookieName = 'remember_user_id';
+    if (!empty($_COOKIE[$rememberCookieName])) {
+        require_once '../koneksi.php';
+        $uid = (int)$_COOKIE[$rememberCookieName];
+
+        if ($uid > 0) {
+            try {
+                $stmt = $pdo->prepare('SELECT user_id, username FROM users WHERE user_id = :uid LIMIT 1');
+                $stmt->execute([':uid' => $uid]);
+                $u = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($u) {
+                    $_SESSION['user_id'] = (int)$u['user_id'];
+                    $_SESSION['username'] = (string)$u['username'];
+                }
+            } catch (PDOException $e) {
+                // Abaikan autologin saat struktur tabel belum ada/bermasalah
+            }
+        }
+    }
+
+    if (isset($_SESSION['user_id'])) {
+        header('Location: ' . $_SERVER['PHP_SELF']);
+        exit;
+    }
+
+    require_once '../koneksi.php';
+
+    $usersCount = 0;
+    try {
+        $stmt = $pdo->query('SELECT COUNT(*) AS cnt FROM users');
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $usersCount = (int)($row['cnt'] ?? 0);
+    } catch (PDOException $e) {
+        // Jika tabel users belum ada, anggap belum ada akun
+        $usersCount = 0;
+    }
+
+    if ($usersCount > 0) {
+        header('Location: ../login.php?msg=' . urlencode('Silakan login terlebih dahulu untuk mengakses dashboard.'));
+    } else {
+        header('Location: ../register.php?msg=' . urlencode('Silakan daftar terlebih dahulu untuk mengakses dashboard.'));
+    }
+    exit;
+}
+
 require_once '../koneksi.php';
 $baseUrl = '../';
 $pageTitle = 'Dashboard';

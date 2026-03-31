@@ -564,3 +564,72 @@ body.app-body {
 .container {
   max-width: 1140px;
 }
+
+/* ===== Auth pages (register/login) ===== */
+.auth-page-body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(0, 90, 97, 0.95) 0%, var(--teal-dark) 55%, rgba(0, 131, 138, 0.95) 100%);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(0, 106, 113, 0.12);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.auth-card-header {
+  padding: 1.1rem 1.5rem;
+  background: linear-gradient(135deg, #005a61 0%, var(--teal-dark) 55%, #00838a 100%);
+  color: #fff;
+}
+
+.auth-card-header h5 {
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.auth-card-subtitle {
+  margin-top: 0.25rem;
+  opacity: 0.9;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.auth-card-body {
+  padding: 1.25rem 1.5rem;
+}
+
+.auth-form .form-control {
+  border-radius: var(--radius-sm);
+  border-color: rgba(0, 106, 113, 0.22);
+}
+
+.auth-form .form-control:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 0.25rem var(--ring);
+}
+
+.auth-primary-btn {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.auth-link {
+  color: var(--teal-dark);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-link:hover {
+  color: #004f55;
+  text-decoration: underline;
+}

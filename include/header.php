@@ -1,4 +1,8 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (!isset($baseUrl)) {
     $baseUrl = '';
 }
@@ -76,8 +80,9 @@ if ($hour >= 5 && $hour < 12) {
                         <i class="fa-solid fa-user"></i>
                     </span>
                     <span class="d-none d-sm-inline text-start">
-                        <span class="d-block lh-1 small">Administrator</span>
-                        <span class="d-block lh-1 text-light-50 extra-small">Inventaris</span>
+                        <span class="d-block lh-1 small">
+                            <?= isset($_SESSION['username']) && $_SESSION['username'] !== '' ? htmlspecialchars((string)$_SESSION['username']) : 'Administrator' ?>
+                        </span>
                     </span>
                     <i class="fa-solid fa-chevron-down extra-small"></i>
                 </button>
@@ -86,7 +91,19 @@ if ($hour >= 5 && $hour < 12) {
                     <li><a class="dropdown-item" href="#"><i class="fa-solid fa-id-badge me-2"></i>Profil</a></li>
                     <li><a class="dropdown-item" href="#"><i class="fa-solid fa-gear me-2"></i>Pengaturan</a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-danger" href="#"><i class="fa-solid fa-right-from-bracket me-2"></i>Keluar</a></li>
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                        <li>
+                            <a class="dropdown-item text-danger" href="<?= $baseUrl ?>logout.php">
+                                <i class="fa-solid fa-right-from-bracket me-2"></i>Keluar
+                            </a>
+                        </li>
+                    <?php else: ?>
+                        <li>
+                            <a class="dropdown-item" href="<?= $baseUrl ?>login.php">
+                                <i class="fa-solid fa-right-to-bracket me-2"></i>Masuk
+                            </a>
+                        </li>
+                    <?php endif; ?>
                 </ul>
             </div>
         </div>
