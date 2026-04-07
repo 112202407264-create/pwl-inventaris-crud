@@ -7,7 +7,7 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once 'koneksi.php';
 
 $rememberCookieName = 'remember_user_id';
-$rememberSeconds = 60;
+$rememberSeconds = 10;
 
 // Autologin dari cookie "Remember Me"
 if (empty($_SESSION['user_id']) && !empty($_COOKIE[$rememberCookieName])) {

@@ -41,7 +41,7 @@ if (!isset($_SESSION['user_id'])) {
     }
 }
 
-$sessionTimeoutSeconds = 60;
+$sessionTimeoutSeconds = 10;
 if (isset($_SESSION['user_id'])) {
     if (isset($_SESSION['last_activity']) && (time() - (int)$_SESSION['last_activity']) > $sessionTimeoutSeconds) {
         $_SESSION = [];
