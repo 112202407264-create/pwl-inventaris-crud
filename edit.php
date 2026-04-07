@@ -42,6 +42,19 @@ if (!isset($_SESSION['user_id'])) {
     }
 }
 
+$sessionTimeoutSeconds = 60;
+if (isset($_SESSION['user_id'])) {
+    if (isset($_SESSION['last_activity']) && (time() - (int)$_SESSION['last_activity']) > $sessionTimeoutSeconds) {
+        $_SESSION = [];
+        session_destroy();
+        $secure = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off');
+        setcookie('remember_user_id', '', time() - 3600, '/', '', $secure, true);
+        header('Location: login.php?msg=' . urlencode('Sesi habis. Silakan login kembali.'));
+        exit;
+    }
+    $_SESSION['last_activity'] = time();
+}
+
 require_once 'koneksi.php';
 
 // 1. Ambil kode barang secara aman dari parameter GET atau POST

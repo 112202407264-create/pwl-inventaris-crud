@@ -1,12 +1,13 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params(0); 
     session_start();
 }
 
 require_once 'koneksi.php';
 
 $rememberCookieName = 'remember_user_id';
-$rememberDays = 7;
+$rememberSeconds = 60;
 
 // Autologin dari cookie "Remember Me"
 if (empty($_SESSION['user_id']) && !empty($_COOKIE[$rememberCookieName])) {
@@ -19,6 +20,7 @@ if (empty($_SESSION['user_id']) && !empty($_COOKIE[$rememberCookieName])) {
         if ($u) {
             $_SESSION['user_id'] = (int)$u['user_id'];
             $_SESSION['username'] = (string)$u['username'];
+            $_SESSION['last_activity'] = time();
         } else {
             // Cookie sudah tidak valid (user sudah dihapus), bersihkan
             $secure = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off');
@@ -56,14 +58,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = (int)$user['user_id'];
                 $_SESSION['username'] = (string)$user['username'];
+                $_SESSION['last_activity'] = time();
+
+                $secure = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off');
 
                 if ($rememberMe) {
-                    $secure = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off');
-                    $expires = time() + ($rememberDays * 86400);
+                    // Set cookie Remember Me selama 1 menit
+                    $expires = time() + $rememberSeconds;
                     setcookie($rememberCookieName, (string)$_SESSION['user_id'], $expires, '/', '', $secure, true);
                 } else {
-                    $secure = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off');
+                    // Hapus cookie remember me jika ada
                     setcookie($rememberCookieName, '', time() - 3600, '/', '', $secure, true);
+                    
+                    // PERTEGAS: Set cookie session bawaan PHP agar benar-benar mati saat browser ditutup
+                    setcookie(session_name(), session_id(), 0, '/', '', $secure, true);
                 }
 
                 header('Location: pages/dashboard.php');
@@ -75,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Blok PHP digabung di sini (tanpa perlu membuka tag <?php baru)
+// Blok PHP digabung di sini
 $cssFile = __DIR__ . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'app.css';
 $cssVer = file_exists($cssFile) ? filemtime($cssFile) : time();
 ?>

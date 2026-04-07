@@ -1,5 +1,6 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params(0); 
     session_start();
 }
 
@@ -31,6 +32,7 @@ if (!isset($_SESSION['user_id'])) {
         exit;
     }
 
+
     require_once '../koneksi.php';
 
     $usersCount = 0;
@@ -51,6 +53,20 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+$sessionTimeoutSeconds = 60;
+if (isset($_SESSION['user_id'])) {
+    if (isset($_SESSION['last_activity']) && (time() - (int)$_SESSION['last_activity']) > $sessionTimeoutSeconds) {
+        $_SESSION = [];
+        session_destroy();
+        $secure = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off');
+        setcookie('remember_user_id', '', time() - 3600, '/', '', $secure, true);
+        header('Location: ../login.php?msg=' . urlencode('Sesi habis. Silakan login kembali.'));
+        exit;
+    }
+    $_SESSION['last_activity'] = time();
+}
+
+// Jika lolos pengecekan di atas, berarti user sudah login
 require_once '../koneksi.php';
 $baseUrl = '../';
 $pageTitle = 'Dashboard';
@@ -81,4 +97,3 @@ include '../include/header.php';
 </div>
 
 <?php include '../include/footer.php'; ?>
-

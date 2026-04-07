@@ -5,12 +5,6 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once 'koneksi.php';
 
-// Jika sudah login, langsung arahkan ke dashboard
-if (isset($_SESSION['user_id'])) {
-    header('Location: pages/dashboard.php');
-    exit;
-}
-
 $error = '';
 $msg = isset($_GET['msg']) ? trim((string)$_GET['msg']) : '';
 
