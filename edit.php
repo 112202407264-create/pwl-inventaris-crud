@@ -42,7 +42,7 @@ if (!isset($_SESSION['user_id'])) {
     }
 }
 
-$sessionTimeoutSeconds = 10;
+$sessionTimeoutSeconds = 10800; // 3 jam
 if (isset($_SESSION['user_id'])) {
     if (isset($_SESSION['last_activity']) && (time() - (int)$_SESSION['last_activity']) > $sessionTimeoutSeconds) {
         $_SESSION = [];
@@ -82,47 +82,101 @@ if (!$data) {
 }
 
 // 3. Proses Update Data jika tombol ditekkan
+$errors = []; // 4c. Simpan pesan kesalahan dalam sebuah array
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nama_barang   = trim($_POST['nama_barang'] ?? '');
     $jumlah        = trim($_POST['jumlah'] ?? '');
+    $harga         = trim($_POST['harga'] ?? '');
     $satuan        = trim($_POST['satuan'] ?? '');
     $lokasi        = trim($_POST['lokasi'] ?? '');
     $tanggal_masuk = trim($_POST['tanggal_masuk'] ?? '');
 
-    // Validasi input kosong
-    if ($nama_barang === '' || $jumlah === '') {
-        $error = 'Nama barang dan jumlah wajib diisi.';
-    } else {
+    // 4. Implementasi Validasi Server
+    if ($nama_barang === '') {
+        $errors[] = 'Nama barang wajib diisi.';
+    }
+    if ($jumlah === '' || !is_numeric($jumlah)) {
+        $errors[] = 'Jumlah harus berupa angka.';
+    }
+    if ($harga === '' || !is_numeric($harga)) {
+        $errors[] = 'Harga harus berupa angka.';
+    }
+
+    if (empty($errors)) {
         try {
             // Gunakan tanggal lama jika input tanggal dikosongkan secara paksa
             if ($tanggal_masuk === '') {
                 $tanggal_masuk = $data['tanggal_masuk']; 
             }
 
-            // Eksekusi query Update
-            $sql = "UPDATE barang SET 
-                        nama_barang = :nama,
-                        jumlah      = :jumlah,
-                        satuan      = :satuan,
-                        lokasi      = :lokasi,
-                        tanggal_masuk = :tanggal
-                    WHERE kode_barang = :kode";
-            
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([
-                ':nama'    => $nama_barang,
-                ':jumlah'  => (int)$jumlah,
-                ':satuan'  => $satuan,
-                ':lokasi'  => $lokasi,
-                ':tanggal' => $tanggal_masuk,
-                ':kode'    => $kode_barang
-            ]);
+            // 6. Implementasi Logika Unggah File
+            $gambar_path = $data['gambar'] ?? null; // Default pakai gambar lama
+            if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] === UPLOAD_ERR_OK) {
+                // 6d. Pindahkan direktori (folder uploads/)
+                $upload_dir = 'uploads/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0777, true);
+                }
+                
+                $file_tmp = $_FILES['gambar']['tmp_name'];
+                $file_name = $_FILES['gambar']['name'];
+                $file_size = $_FILES['gambar']['size'];
+                $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+                $allowed_exts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+                
+                // 6b. Validasi tipe file dan ukurannya
+                if (!in_array($file_ext, $allowed_exts)) {
+                    $errors[] = 'Format gambar tidak valid (hanya JPG, PNG, GIF, WEBP).';
+                } elseif ($file_size > 2000000) { // maksimal 2MB
+                    $errors[] = 'Ukuran gambar maksimal 2MB.';
+                } else {
+                    // 6c. Buat nama unik
+                    $new_file_name = uniqid() . '_' . preg_replace('/[^a-zA-Z0-9.\-_]/', '', $file_name);
+                    $dest_path = $upload_dir . $new_file_name;
+                    
+                    if (move_uploaded_file($file_tmp, $dest_path)) {
+                        // Hapus gambar lama jika ada
+                        if ($gambar_path && file_exists($gambar_path)) {
+                            unlink($gambar_path);
+                        }
+                        // 6e. Simpan nama unik ke variabel (nanti ke basis data)
+                        $gambar_path = $dest_path;
+                    } else {
+                        $errors[] = 'Gagal mengunggah gambar baru.';
+                    }
+                }
+            }
 
-            // Jika berhasil, alihkan ke halaman utama
-            header('Location: index.php?msg=' . urlencode('Data sepatu berhasil diperbarui!'));
-            exit;
+            if (empty($errors)) {
+                // 5. Implementasi Prepared Statements (UPDATE)
+                $sql = "UPDATE barang SET 
+                            nama_barang = :nama,
+                            jumlah      = :jumlah,
+                            harga       = :harga,
+                            satuan      = :satuan,
+                            lokasi      = :lokasi,
+                            gambar      = :gambar,
+                            tanggal_masuk = :tanggal
+                        WHERE kode_barang = :kode";
+                
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([
+                    ':nama'    => $nama_barang,
+                    ':jumlah'  => (int)$jumlah,
+                    ':harga'   => (int)$harga,
+                    ':satuan'  => $satuan,
+                    ':lokasi'  => $lokasi,
+                    ':gambar'  => $gambar_path,
+                    ':tanggal' => $tanggal_masuk,
+                    ':kode'    => $kode_barang
+                ]);
+
+                // Jika berhasil, alihkan ke halaman utama
+                header('Location: index.php?msg=' . urlencode('Data sepatu berhasil diperbarui!'));
+                exit;
+            }
         } catch (PDOException $e) {
-            $error = 'Gagal menyimpan ke database: ' . $e->getMessage();
+            $errors[] = 'Gagal menyimpan ke database.';
         }
     }
 }
@@ -142,13 +196,17 @@ include 'include/header.php';
                     <h5 class="mb-0"><i class="fa-solid fa-pen-to-square me-2"></i> Edit Data Sepatu</h5>
                 </div>
                 <div class="card-body">
-                    <?php if (!empty($error)): ?>
+                    <?php if (!empty($errors)): ?>
                         <div class="alert alert-danger">
-                            <i class="fa-solid fa-triangle-exclamation me-2"></i> <?= htmlspecialchars($error) ?>
+                            <ul class="mb-0">
+                                <?php foreach ($errors as $err): ?>
+                                    <li><i class="fa-solid fa-triangle-exclamation me-1"></i> <?= htmlspecialchars($err) ?></li>
+                                <?php endforeach; ?>
+                            </ul>
                         </div>
                     <?php endif; ?>
 
-                    <form method="post" action="edit.php?kode_barang=<?= urlencode($kode_barang) ?>">
+                    <form method="post" action="edit.php?kode_barang=<?= urlencode($kode_barang) ?>" enctype="multipart/form-data">
                         
                         <input type="hidden" name="kode_barang" value="<?= htmlspecialchars($kode_barang) ?>">
 
@@ -164,12 +222,17 @@ include 'include/header.php';
                                    required value="<?= htmlspecialchars($_POST['nama_barang'] ?? $data['nama_barang']) ?>">
                         </div>
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
                                 <label for="jumlah" class="form-label">Jumlah/Stok <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="jumlah" name="jumlah" min="0"
                                        required value="<?= htmlspecialchars($_POST['jumlah'] ?? $data['jumlah']) ?>">
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
+                                <label for="harga" class="form-label">Harga (Rp) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="harga" name="harga" min="0"
+                                       required value="<?= htmlspecialchars($_POST['harga'] ?? ($data['harga'] ?? 0)) ?>">
+                            </div>
+                            <div class="col-md-4 mb-3">
                                 <label for="satuan" class="form-label">Satuan</label>
                                 <input type="text" class="form-control" id="satuan" name="satuan"
                                        value="<?= htmlspecialchars($_POST['satuan'] ?? $data['satuan']) ?>">
@@ -179,6 +242,17 @@ include 'include/header.php';
                             <label for="lokasi" class="form-label">Lokasi Gudang</label>
                             <input type="text" class="form-control" id="lokasi" name="lokasi"
                                    value="<?= htmlspecialchars($_POST['lokasi'] ?? $data['lokasi']) ?>">
+                        </div>
+                        <div class="mb-3">
+                            <label for="gambar" class="form-label">Gambar Barang (Opsional)</label>
+                            <?php if (!empty($data['gambar'])): ?>
+                                <div class="mb-2">
+                                    <img src="<?= htmlspecialchars($data['gambar']) ?>" alt="Gambar" width="150" class="img-thumbnail">
+                                </div>
+                            <?php endif; ?>
+                            <!-- 3. Modifikasi form -->
+                            <input type="file" class="form-control" id="gambar" name="gambar" accept="image/*">
+                            <div class="form-text">Biarkan kosong jika tidak ingin mengubah gambar. Batas upload maksimal 2MB.</div>
                         </div>
                         <div class="mb-3">
                             <label for="tanggal_masuk" class="form-label">Tanggal Masuk</label>

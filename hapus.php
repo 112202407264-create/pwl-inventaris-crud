@@ -41,7 +41,7 @@ if (!isset($_SESSION['user_id'])) {
     }
 }
 
-$sessionTimeoutSeconds = 10;
+$sessionTimeoutSeconds = 10800; // 3 jam
 if (isset($_SESSION['user_id'])) {
     if (isset($_SESSION['last_activity']) && (time() - (int)$_SESSION['last_activity']) > $sessionTimeoutSeconds) {
         $_SESSION = [];
@@ -66,12 +66,21 @@ if ($kode_barang === '') {
 }
 
 try {
+    // Cari data untuk mendapatkan path gambar
+    $stmtSelect = $pdo->prepare("SELECT gambar FROM barang WHERE kode_barang = :kode_barang");
+    $stmtSelect->execute([':kode_barang' => $kode_barang]);
+    $data = $stmtSelect->fetch(PDO::FETCH_ASSOC);
+
     // Eksekusi query DELETE
     $stmt = $pdo->prepare("DELETE FROM barang WHERE kode_barang = :kode_barang");
     $stmt->execute([':kode_barang' => $kode_barang]);
 
     // Cek apakah ada data yang benar-benar terhapus
     if ($stmt->rowCount() > 0) {
+        // Hapus file gambar secara fisik jika ada
+        if ($data && !empty($data['gambar']) && file_exists($data['gambar'])) {
+            unlink($data['gambar']);
+        }
         header('Location: index.php?msg=' . urlencode('Data sepatu berhasil dihapus!'));
     } else {
         // Jika rowCount 0, berarti kode_barang dicari tapi tidak ada di database

@@ -20,6 +20,20 @@ $options = [
 
 try {
     $pdo = new PDO($dsn, $user, $pass, $options);
+    
+    // Auto-tambah kolom harga dan gambar jika belum ada
+    try {
+        $pdo->exec("ALTER TABLE barang ADD COLUMN harga INT NOT NULL DEFAULT 0 AFTER jumlah");
+    } catch (PDOException $e) {
+        // Kolom sudah ada atau query gagal, abaikan
+    }
+    
+    try {
+        $pdo->exec("ALTER TABLE barang ADD COLUMN gambar VARCHAR(255) NULL AFTER lokasi");
+    } catch (PDOException $e) {
+        // Kolom sudah ada atau query gagal, abaikan
+    }
+
 } catch (PDOException $e) {
     // Untuk produksi sebaiknya tidak menampilkan pesan asli
     die('Koneksi ke database gagal: ' . $e->getMessage());

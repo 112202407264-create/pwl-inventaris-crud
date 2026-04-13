@@ -44,7 +44,7 @@ if (!isset($_SESSION['user_id'])) {
     }
 }
 
-$sessionTimeoutSeconds = 10;
+$sessionTimeoutSeconds = 10800; // 3 jam
 if (isset($_SESSION['user_id'])) {
     if (isset($_SESSION['last_activity']) && (time() - (int)$_SESSION['last_activity']) > $sessionTimeoutSeconds) {
         $_SESSION = [];
@@ -106,8 +106,10 @@ include 'include/header.php';
                     <thead class="table-primary">
                     <tr>
                         <th>No</th>
+                        <th>Gambar</th>
                         <th>Kode</th>
                         <th>Nama Barang</th>
+                        <th>Harga</th>
                         <th>Jumlah</th>
                         <th>Satuan</th>
                         <th>Lokasi</th>
@@ -124,8 +126,16 @@ include 'include/header.php';
                         <?php $no = 1; foreach ($barang as $row): ?>
                             <tr>
                                 <td><?= $no++ ?></td>
+                                <td>
+                                    <?php if (!empty($row['gambar'])): ?>
+                                        <img src="<?= htmlspecialchars($row['gambar']) ?>" alt="Gambar" width="50" class="img-thumbnail border-0 shadow-sm">
+                                    <?php else: ?>
+                                        <span class="text-muted" style="font-size:0.8rem;">Tidak ada</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= htmlspecialchars($row['kode_barang']) ?></td>
                                 <td><?= htmlspecialchars($row['nama_barang']) ?></td>
+                                <td>Rp<?= number_format((int)($row['harga'] ?? 0), 0, ',', '.') ?></td>
                                 <td><?= htmlspecialchars($row['jumlah']) ?></td>
                                 <td><?= htmlspecialchars($row['satuan']) ?></td>
                                 <td><?= htmlspecialchars($row['lokasi']) ?></td>
