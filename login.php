@@ -5,9 +5,7 @@ define('COOKIE_REMEMBER', 'remember_me');
 define('COOKIE_DURASI', 1 * 60);
 
 if (empty($_SESSION['user_id']) && !empty($_COOKIE[COOKIE_REMEMBER])) {
-
     $uid  = (int) $_COOKIE[COOKIE_REMEMBER]; // ambil user_id dari cookie
-
     // Cari user di database menggunakan PDO
     $stmt = $pdo->prepare('SELECT user_id, username FROM users WHERE user_id = ? LIMIT 1');
     $stmt->execute([$uid]);
