@@ -1,93 +1,66 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_set_cookie_params(0); 
-    session_start();
-}
-
+session_start();
 require_once 'koneksi.php';
+define('COOKIE_REMEMBER', 'remember_me');
+define('COOKIE_DURASI', 1 * 60);
 
-$rememberCookieName = 'remember_user_id';
-$rememberSeconds = 10;
+if (empty($_SESSION['user_id']) && !empty($_COOKIE[COOKIE_REMEMBER])) {
 
-// Autologin dari cookie "Remember Me"
-if (empty($_SESSION['user_id']) && !empty($_COOKIE[$rememberCookieName])) {
-    $uid = (int)$_COOKIE[$rememberCookieName];
-    if ($uid > 0) {
-        $stmt = $pdo->prepare('SELECT user_id, username FROM users WHERE user_id = :uid LIMIT 1');
-        $stmt->execute([':uid' => $uid]);
-        $u = $stmt->fetch(PDO::FETCH_ASSOC);
+    $uid  = (int) $_COOKIE[COOKIE_REMEMBER]; // ambil user_id dari cookie
 
-        if ($u) {
-            $_SESSION['user_id'] = (int)$u['user_id'];
-            $_SESSION['username'] = (string)$u['username'];
-            $_SESSION['last_activity'] = time();
-        } else {
-            // Cookie sudah tidak valid (user sudah dihapus), bersihkan
-            $secure = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off');
-            setcookie($rememberCookieName, '', time() - 3600, '/', '', $secure, true);
-        }
+    // Cari user di database menggunakan PDO
+    $stmt = $pdo->prepare('SELECT user_id, username FROM users WHERE user_id = ? LIMIT 1');
+    $stmt->execute([$uid]);
+    $user = $stmt->fetch();
+
+    if ($user) {
+        // User ditemukan → isi session seperti biasa
+        $_SESSION['user_id']  = (int) $user['user_id'];
+        $_SESSION['username'] = $user['username'];
+    } else {
+        // Cookie tidak valid (user sudah dihapus dari DB) → hapus cookie
+        setcookie(COOKIE_REMEMBER, '', time() - 3600, '/');
     }
 }
 
-// Jika sudah login, langsung arahkan ke dashboard
-if (isset($_SESSION['user_id'])) {
+if (!empty($_SESSION['user_id'])) {
     header('Location: pages/dashboard.php');
     exit;
 }
 
 $error = '';
-$msg = isset($_GET['msg']) ? trim((string)$_GET['msg']) : '';
+$msg   = $_GET['msg'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim((string)($_POST['username'] ?? ''));
-    $password = (string)($_POST['password'] ?? '');
-    $rememberMe = isset($_POST['remember_me']) && ($_POST['remember_me'] === '1' || $_POST['remember_me'] === 1);
+
+    $username   = trim($_POST['username'] ?? '');
+    $password   = $_POST['password']      ?? '';
+    $rememberMe = isset($_POST['remember_me']); // true jika dicentang
 
     if ($username === '' || $password === '') {
         $error = 'Username dan password wajib diisi.';
+
     } else {
-        try {
-            $stmt = $pdo->prepare('SELECT user_id, username, password_hash FROM users WHERE username = :username LIMIT 1');
-            $stmt->execute([':username' => $username]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$user || !password_verify($password, (string)$user['password_hash'])) {
-                $error = 'Username atau password salah.';
-            } else {
-                // Regenerasi session agar lebih aman terhadap session fixation
-                session_regenerate_id(true);
-                $_SESSION['user_id'] = (int)$user['user_id'];
-                $_SESSION['username'] = (string)$user['username'];
-                $_SESSION['last_activity'] = time();
-
-                $secure = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off');
-
-                if ($rememberMe) {
-                    // Set cookie Remember Me selama 1 menit
-                    $expires = time() + $rememberSeconds;
-                    setcookie($rememberCookieName, (string)$_SESSION['user_id'], $expires, '/', '', $secure, true);
-                } else {
-                    // Hapus cookie remember me jika ada
-                    setcookie($rememberCookieName, '', time() - 3600, '/', '', $secure, true);
-                    
-                    // PERTEGAS: Set cookie session bawaan PHP agar benar-benar mati saat browser ditutup
-                    setcookie(session_name(), session_id(), 0, '/', '', $secure, true);
-                }
-
-                header('Location: pages/dashboard.php');
-                exit;
+        // Cari user berdasarkan username (PDO prepared statement → aman dari SQL injection)
+        $stmt = $pdo->prepare('SELECT user_id, username, password_hash FROM users WHERE username = ? LIMIT 1');
+        $stmt->execute([$username]);
+        $user = $stmt->fetch();
+        if (!$user || !password_verify($password, $user['password_hash'])) {
+            $error = 'Username atau password salah.';
+        } else {
+            $_SESSION['user_id']  = (int) $user['user_id'];
+            $_SESSION['username'] = $user['username'];
+            if ($rememberMe) {
+                setcookie(COOKIE_REMEMBER, (string) $user['user_id'], time() + COOKIE_DURASI, '/');
             }
-        } catch (PDOException $e) {
-            $error = 'Gagal login: cek struktur tabel (users).';
+            header('Location: pages/dashboard.php');
+            exit;
         }
     }
 }
 
-// Blok PHP digabung di sini
-$cssFile = __DIR__ . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'app.css';
-$cssVer = file_exists($cssFile) ? filemtime($cssFile) : time();
+$cssVer = file_exists(__DIR__ . '/assets/app.css') ? filemtime(__DIR__ . '/assets/app.css') : time();
 ?>
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -98,7 +71,7 @@ $cssVer = file_exists($cssFile) ? filemtime($cssFile) : time();
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
-    <link rel="stylesheet" type="text/css" href="assets/app.css?v=<?= (int)$cssVer ?>">
+    <link rel="stylesheet" href="assets/app.css?v=<?= (int) $cssVer ?>">
 </head>
 <body class="auth-page-body">
 <div class="auth-card">
@@ -108,6 +81,7 @@ $cssVer = file_exists($cssFile) ? filemtime($cssFile) : time();
     </div>
 
     <div class="auth-card-body">
+
         <?php if ($msg): ?>
             <div class="alert alert-success" role="alert">
                 <?= htmlspecialchars($msg) ?>
@@ -134,8 +108,10 @@ $cssVer = file_exists($cssFile) ? filemtime($cssFile) : time();
 
             <div class="form-check mb-3">
                 <input class="form-check-input" type="checkbox" value="1" id="remember_me" name="remember_me"
-                    <?= !empty($_POST['remember_me']) ? 'checked' : '' ?>>
-                <label class="form-check-label" for="remember_me">Remember Me</label>
+                    <?= isset($_POST['remember_me']) ? 'checked' : '' ?>>
+                <label class="form-check-label" for="remember_me">
+                    Remember Me <span class="text-muted">(tetap login 30 hari)</span>
+                </label>
             </div>
 
             <button type="submit" class="btn btn-primary auth-primary-btn">

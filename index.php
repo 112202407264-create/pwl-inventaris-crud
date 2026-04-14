@@ -1,70 +1,14 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Satu baris ini sudah menangani: cek session + autologin cookie + redirect jika belum login
+require_once 'include/auth.php';
 
-if (!isset($_SESSION['user_id'])) {
-    $rememberCookieName = 'remember_user_id';
-    if (!empty($_COOKIE[$rememberCookieName])) {
-        require_once 'koneksi.php';
-        $uid = (int)$_COOKIE[$rememberCookieName];
-        if ($uid > 0) {
-            try {
-                $stmt = $pdo->prepare('SELECT user_id, username FROM users WHERE user_id = :uid LIMIT 1');
-                $stmt->execute([':uid' => $uid]);
-                $u = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($u) {
-                    $_SESSION['user_id'] = (int)$u['user_id'];
-                    $_SESSION['username'] = (string)$u['username'];
-                }
-            } catch (PDOException $e) {
-                // abaikan
-            }
-        }
-    }
-
-    if (isset($_SESSION['user_id'])) {
-        // sudah terautentikasi lewat cookie
-    } else {
-        require_once 'koneksi.php';
-
-        $usersCount = 0;
-        try {
-            $stmt = $pdo->query('SELECT COUNT(*) AS cnt FROM users');
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            $usersCount = (int)($row['cnt'] ?? 0);
-        } catch (PDOException $e) {
-            $usersCount = 0;
-        }
-
-        $target = $usersCount > 0 ? 'login.php' : 'register.php';
-        $msgText = $usersCount > 0 ? 'Silakan login terlebih dahulu untuk mengakses halaman admin.' : 'Silakan daftar terlebih dahulu untuk mengakses halaman admin.';
-        header('Location: ' . $target . '?msg=' . urlencode($msgText));
-        exit;
-    }
-}
-
-$sessionTimeoutSeconds = 10800; // 3 jam
-if (isset($_SESSION['user_id'])) {
-    if (isset($_SESSION['last_activity']) && (time() - (int)$_SESSION['last_activity']) > $sessionTimeoutSeconds) {
-        $_SESSION = [];
-        session_destroy();
-        $secure = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off');
-        setcookie('remember_user_id', '', time() - 3600, '/', '', $secure, true);
-        header('Location: login.php?msg=' . urlencode('Sesi habis. Silakan login kembali.'));
-        exit;
-    }
-    $_SESSION['last_activity'] = time();
-}
-
+// Koneksi database
 require_once 'koneksi.php';
 
 $barang = [];
-$error = ''; // Menambahkan variabel error agar tidak muncul peringatan "undefined variable"
+$error = '';
 
 try {
-    // PERBAIKAN: Mengganti 'ORDER BY id DESC' menjadi 'ORDER BY kode_barang ASC'
-    // karena tabel kita menggunakan 'kode_barang' sebagai primary key.
     $stmt   = $pdo->query("SELECT * FROM barang ORDER BY kode_barang ASC");
     $barang = $stmt->fetchAll();
 } catch (PDOException $e) {
