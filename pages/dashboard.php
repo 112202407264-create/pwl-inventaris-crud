@@ -1,11 +1,6 @@
 <?php
-// Tentukan baseUrl agar auth.php tahu path ke login.php
 $baseUrl = '../';
-
-// Satu baris ini sudah menangani: cek session + autologin cookie + redirect jika belum login
 require_once '../include/auth.php';
-
-// Koneksi database
 require_once '../koneksi.php';
 
 $pageTitle = 'Dashboard';
